@@ -60,7 +60,7 @@
                     exit (1); //TODO: error code
                 }
                 $filetext = fread($qf, filesize($xqr->qf));
-                print_r($filetext);
+                // print_r($filetext);
                 $words = split(" ", $filetext);
                 // foreach($words as $item) {
                 // 	array_push($arguments, $item);
@@ -84,7 +84,7 @@
 	                exit (1);
             	}
             	$words[0] = substr($value, 8);
-            	print(count($argv)."\n");
+            	// print(count($argv)."\n");
             	for($i = array_search($value, $argv)+1; $i < count($argv); $i++) {
             		if(preg_match("/^--/", $argv[$i]))
             			break;
@@ -263,30 +263,6 @@
             exit (1);
         }
     }
-
-    function getOpts($argc, $argv) {
-        $result = '';
-        for ($i=1; $i < $argc; $i++)
-            if($i != $argc -1)
-                $result .= $argv[$i].' ';
-            else 
-                $result .= $argv[$i];
-        //--help
-        if(preg_match('/'.'--help'.'/', $result)) {
-            printHelp();
-            exit (0);
-        }
-        //--output
-        $temp = array();
-        if(preg_match("/--output=(.*?)(?:\s+--|$)/", $result, $temp)) {
-            print_r($temp);
-        }       //--input
-        if(preg_match("/--input=(.*?)(?:\s+--|$)/", $result, $temp))
-            print_r($temp);
-        preg_replace('/--input=input s mezerou.xml/', '', $result);
-        var_dump($result);
-    }
-
 
     function printHelp() {
         printf("Obsah napovedy\n");
