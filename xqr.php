@@ -18,9 +18,8 @@
 
     function getAction($xqr, $argc, $argv, $stderr) {
         $arguments = $argv;
-
-        foreach ($arguments as $value) {
-            unset($arguments[0]);
+        unset($arguments[0]);
+        foreach ($arguments as $value) { 
 
             //--help
             if(preg_match("/--help/", $value)) {
@@ -35,7 +34,7 @@
             //--root
             if(preg_match("/--root=/", $value))  {
                 if(preg_match('/\A(?!XML)[a-z][\w0-9-]*/i', substr($value, 7))) {
-                    $xqr->root = TRUE;
+                    $xqr->root = substr($value, 7);
                     unset($arguments[array_search($value, $arguments)]);
                 } else {
                     fwrite($stderr, "Error: ROOT neni platny element\n");
@@ -257,6 +256,7 @@
 	            }
 	        }
 	    }
+
         foreach ($arguments as $value) {
             fwrite($stderr, "Error: neplatne argumenty\n");
             // fwrite($stderr, "Run $argv[0] --help instead\n");
@@ -264,8 +264,75 @@
         }
     }
 
+    function formQuery($xqr, $stderr) {
+
+    	#------ <FROM> ------------------------------------
+    	if($xqr->FROM[0] === "ROOT")
+    		$query = "/";
+    	elseif($xqr->FROM[0] === "ELEMENT")
+			$query = "//".$xqr->FROM[1];
+		elseif($xqr->FROM[0] === "ATTRIBUTE")
+			$query = "//(@".substr($xqr->FROM[1], 1)."/..)";
+		elseif($xqr->FROM[0] === "ELEMENT.ATTRIBUTE") {
+			$x = explode(".", $xqr->FROM[1]);
+			$query = "//".$x[0]."[@".$x[1]."]/..)";
+		}
+		#------ </FROM> ------------------------------------
+
+		#------ <SELECT> ------------------------------------
+		$query .= "//".$xqr->SELECT;
+		#------ </SELECT> ------------------------------------
+
+		#------ <WHERE> ------------------------------------
+
+		#------ </WHERE> ------------------------------------
+
+		return $query;
+    }
+    
+
+    function printResult($xqr, $stderr, $query) {
+    	if(isset($xqr->output)) {
+	    	if(($output = @fopen($xqr->output, 'w')) == FALSE) {
+	    		fwrite($stderr, "Error: Nepodarilo se otevrit vysputni soubor\n");
+				exit(1);
+	    	}
+	    } else
+    		$output = STDOUT;
+		if(($xml = @simplexml_load_file($xqr->input)) == FALSE) {
+			fwrite($stderr, "Error: Spatny vstupni soubor\n");
+			exit(1);
+		}
+		if($xqr->n != TRUE)
+			fwrite($output, '<?xml version="1.0" encoding="utf-8"?>');
+
+		if(isset($xqr->root))
+			fwrite($output, "<".$xqr->root.">");
+
+		$result = $xml->xpath($query);
+
+		$i = 1;
+		foreach ($result as $line) {
+			fwrite($output, $line->asXML());
+			if(isset($xqr->LIMIT) and $xqr->LIMIT == $i)
+				break; 
+			$i++;
+		}
+
+		if(isset($xqr->root))
+			fwrite($output, "</".$xqr->root.">");
+		fwrite($output, "\n");
+    }
+
+
     function printHelp() {
-        printf("Obsah napovedy\n");
+        printf("--help                 - Show help
+--input=filename.ext   - Input file with xml
+--output=filename.ext  - Output file with xml
+--query='query'        - Query under xml - can not be used with -qf attribute
+--qf=filename.ext      - Filename with query under xml
+-n                     - Xml will be generated without XML header
+-r=element             - Name of root element\n");
     }
 
     $stderr = fopen('php://stderr', 'a');
@@ -273,7 +340,9 @@
     $xqr = new Query;
 
     getAction($xqr, $argc, $argv, $stderr);
-    // var_dump($xqr);
+
+    $query = formQuery($xqr, $stderr);
+    printResult($xqr, $stderr, $query);
     
 
 ?>
