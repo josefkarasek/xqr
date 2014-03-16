@@ -34,7 +34,7 @@
             //--root
             if(preg_match("/--root=/", $value))  {
                 if(preg_match('/\A(?!XML)[a-z][\w0-9-]*/i', substr($value, 7))) {
-                    $xqr->root = substr($value, 7);
+                    $xqr->root = trim(substr($value, 7), "\n");
                     unset($arguments[array_search($value, $arguments)]);
                 } else {
                     fwrite($stderr, "Error: ROOT neni platny element\n");
@@ -47,7 +47,7 @@
                     fwrite($stderr, "Error: kombinace --query & --qf\n");
                     exit (1);
                 }
-                $xqr->qf = substr($value, 5);
+                $xqr->qf = trim(substr($value, 5), "\n");
                 unset($arguments[array_search($value, $arguments)]);
 
                 if(! file_exists($xqr->qf)) {
@@ -68,12 +68,12 @@
             }
             //--input
             if(preg_match("/--input=.+/", $value)) {
-                $xqr->input = substr($value, 8);
+                $xqr->input = trim(substr($value, 8), "\n");
                 unset($arguments[array_search($value, $arguments)]);
             }
             //--output
             if(preg_match("/--output=.+/", $value)) {
-                $xqr->output = substr($value, 9);
+                $xqr->output = trim(substr($value, 9), "\n");
                 unset($arguments[array_search($value, $arguments)]);
             }
 
@@ -92,17 +92,19 @@
             		else
             			array_push($words, $argv[$i]);
             	}
+            	for($i=$i-1; $i >= array_search($value, $argv); $i--)
+            		unset($arguments[$i]);
             	// print_r ($words);
             	parseQuery($xqr, $argc, $words, $stderr);
             }
         }
 // var_dump($arguments);
 // var_dump($xqr);
-//         foreach ($arguments as $value) {
-//             fwrite($stderr, "Error: neplatne argumenty\n");
-//             fwrite($stderr, "Run $argv[0] --help instead\n");
-//             exit (1);
-//         }
+        foreach ($arguments as $value) {
+            fwrite($stderr, "Error: neplatne argumenty\n");
+            fwrite($stderr, "Run $argv[0] --help instead\n");
+            exit (1);
+        }
     }
 
     function parseQuery($xqr, $argc, $arguments, $stderr) {
@@ -111,7 +113,7 @@
     		if(preg_match("/SELECT/", $value)) {
 	            if(isset($arguments[array_search($value, $arguments) +1])) {
 	                if( preg_match('/\A(?!XML)[a-z][\w0-9-]*/i', $arguments[array_search($value, $arguments) +1])) {
-	                    $xqr->SELECT = $arguments[array_search($value, $arguments) +1];
+	                    $xqr->SELECT = trim($arguments[array_search($value, $arguments) +1], "\n");
 	                    unset($arguments[array_search($value, $arguments) +1]);
 	                    unset($arguments[array_search($value, $arguments)]);
 	                } else {
@@ -128,7 +130,7 @@
 	        if(preg_match("/LIMIT/", $value))
 	            if(isset($arguments[array_search($value, $arguments) +1]))
 	                if(is_numeric($arguments[array_search($value, $arguments) +1])) {
-	                    $xqr->LIMIT = intval($arguments[array_search($value, $arguments) +1]);
+	                    $xqr->LIMIT = trim(intval($arguments[array_search($value, $arguments) +1]), "\n");
 	                    unset($arguments[array_search($value, $arguments) +1]);
 	                    unset($arguments[array_search($value, $arguments)]);
 	                } else {
@@ -140,22 +142,22 @@
 	            if(isset($arguments[array_search($value, $arguments) +1])) {
 	                //ROOT
 	                if(preg_match("/ROOT/", $arguments[array_search($value, $arguments) +1])) {
-	                    $xqr->FROM[1] = $arguments[array_search($value, $arguments) +1];
+	                    $xqr->FROM[1] = trim($arguments[array_search($value, $arguments) +1], "\n");
 	                    $xqr->FROM[0] = "ROOT";
 	                }
 	                //element.atribut
 	                elseif(preg_match('/\A(?!XML)[a-z][\w0-9-]*\.[a-z][\w0-9-]*$/i', $arguments[array_search($value, $arguments) +1])) {
-	                    $xqr->FROM[1] = $arguments[array_search($value, $arguments) +1];
+	                    $xqr->FROM[1] = trim($arguments[array_search($value, $arguments) +1], "\n");
 	                    $xqr->FROM[0] = "ELEMENT.ATTRIBUTE";
 	                }
 	                //atribut
 	                elseif(preg_match('/\A\.(?!XML)[a-z][\w0-9-]*/i', $arguments[array_search($value, $arguments) +1])) {
-	                    $xqr->FROM[1] = $arguments[array_search($value, $arguments) +1];
+	                    $xqr->FROM[1] = trim($arguments[array_search($value, $arguments) +1], "\n");
 	                    $xqr->FROM[0] = "ATTRIBUTE";
 	                }
 	                //element
 	                elseif(preg_match('/\A(?!XML|\.)[a-z][\w0-9-]*/i', $arguments[array_search($value, $arguments) +1])) {
-	                    $xqr->FROM[1] = $arguments[array_search($value, $arguments) +1];
+	                    $xqr->FROM[1] = trim($arguments[array_search($value, $arguments) +1], "\n");
 	                    $xqr->FROM[0] = "ELEMENT";
 	                } else {
 	                    fwrite($stderr, "Error: missing FROM statement\n");
@@ -238,7 +240,7 @@
 	                }
 	                //string
 	                elseif(preg_match('/^[a-zA-Z]+[[:alpha:]\d-_]*/', $arguments[array_search($value, $arguments) +$offset+2])) {
-	                    $xqr->RIGHT = $arguments[array_search($value, $arguments) +$offset+2];
+	                    $xqr->RIGHT = trim($arguments[array_search($value, $arguments) +$offset+2], "\n");
 	                } else {
 	                    fwrite($stderr, "Error: WHERE: bad literal\n");
 	                    exit (1);
@@ -268,14 +270,14 @@
 
     	#------ <FROM> ------------------------------------
     	if($xqr->FROM[0] === "ROOT")
-    		$query = "/";
+    		$query = "//*[1]";
     	elseif($xqr->FROM[0] === "ELEMENT")
-			$query = "//".$xqr->FROM[1];
+			$query = "//".$xqr->FROM[1]."[1]";
 		elseif($xqr->FROM[0] === "ATTRIBUTE")
-			$query = "//(@".substr($xqr->FROM[1], 1)."/..)";
+			$query = "(//@".substr($xqr->FROM[1], 1)."/..)[1]";
 		elseif($xqr->FROM[0] === "ELEMENT.ATTRIBUTE") {
 			$x = explode(".", $xqr->FROM[1]);
-			$query = "//".$x[0]."[@".$x[1]."]/..)";
+			$query = "//".$x[0]."[@".$x[1]."][1]";
 		}
 		#------ </FROM> ------------------------------------
 
@@ -284,12 +286,13 @@
 		#------ </SELECT> ------------------------------------
 
 		#------ <WHERE> ------------------------------------
-
+		// if($xqr->OPERATOR == "CONTAINS")
+			
 		#------ </WHERE> ------------------------------------
-
+		// print $query."\n";
 		return $query;
     }
-    
+
 
     function printResult($xqr, $stderr, $query) {
     	if(isset($xqr->output)) {
