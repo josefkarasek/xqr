@@ -11,7 +11,7 @@
         var $LIMIT;
         var $FROM = array();
         var $NOT;
-        var $LEFT;
+        var $LEFT = array();
         var $OPERATOR;
         var $RIGHT; 
     }
@@ -188,15 +188,18 @@
 	                }
 	                //element.atribut
 	                if(preg_match('/\A(?!XML)[a-z][\w0-9-]*\.[a-z][\w0-9-]*$/i', $arguments[array_search($value, $arguments) +$offset])) {
-	                    $xqr->LEFT = $arguments[array_search($value, $arguments) +$offset];
+	                    $xqr->LEFT[1] = $arguments[array_search($value, $arguments) +$offset];
+	                    $xqr->LEFT[0] = "ELEMENT.ATTRIBUTE";
 	                }
 	                //atribut
 	                elseif(preg_match('/\A\.(?!XML)[a-z][\w0-9-]*/i', $arguments[array_search($value, $arguments) +$offset])) {
-	                    $xqr->LEFT = $arguments[array_search($value, $arguments) +$offset];
+	                    $xqr->LEFT[1] = $arguments[array_search($value, $arguments) +$offset];
+	                    $xqr->LEFT[0] = "ATTRIBUTE";
 	                }
 	                //element
 	                elseif(preg_match('/\A(?!XML|\.)[a-z][\w0-9-]*/i', $arguments[array_search($value, $arguments) +$offset])) {
-	                    $xqr->LEFT = $arguments[array_search($value, $arguments) +$offset];
+	                    $xqr->LEFT[1] = $arguments[array_search($value, $arguments) +$offset];
+	                    $xqr->LEFT[0] = "ELEMENT";
 	                } else {
 	                    fwrite($stderr, "Error: WHERE: bad element or attribute\n");
 	                    exit (1);
@@ -232,14 +235,10 @@
 	            if(isset($arguments[array_search($value, $arguments) +$offset+2])) {
 	                //number (integer)
 	                if(preg_match('/^-?\d+$/', $arguments[array_search($value, $arguments) +$offset+2])) {
-	                	if($xqr->OPERATOR === "CONTAINS") {
-							fwrite($stderr, "Error: WHERE: ciselny literal po CONTAINS\n");
-	                    	exit (1);
-	                	} else
-	                    	$xqr->RIGHT = $arguments[array_search($value, $arguments) +$offset+2];
+                    	$xqr->RIGHT = trim($arguments[array_search($value, $arguments) +$offset+2], "\n");
 	                }
 	                //string
-	                elseif(preg_match('/^[a-zA-Z]+[[:alpha:]\d-_]*/', $arguments[array_search($value, $arguments) +$offset+2])) {
+	                elseif(preg_match('/^[[:alpha:]\d-_\.]+/', $arguments[array_search($value, $arguments) +$offset+2])) {
 	                    $xqr->RIGHT = trim($arguments[array_search($value, $arguments) +$offset+2], "\n");
 	                } else {
 	                    fwrite($stderr, "Error: WHERE: bad literal\n");
@@ -270,7 +269,7 @@
 
     	#------ <FROM> ------------------------------------
     	if($xqr->FROM[0] === "ROOT")
-    		$query = "//*[1]";
+    		$query = "";   //puvodne "//*[1]""
     	elseif($xqr->FROM[0] === "ELEMENT")
 			$query = "//".$xqr->FROM[1]."[1]";
 		elseif($xqr->FROM[0] === "ATTRIBUTE")
@@ -286,10 +285,79 @@
 		#------ </SELECT> ------------------------------------
 
 		#------ <WHERE> ------------------------------------
-		// if($xqr->OPERATOR == "CONTAINS")
-			
+		// if($xqr->LEFT[0] == "ELEMENT.ATTRIBUTE")
+		// if($xqr->LEFT[0] == "ATTRIBUTE")
+		//ELEMENT
+		if($xqr->LEFT[0] === "ELEMENT") {
+			//CONTAINS
+			if($xqr->OPERATOR === "CONTAINS") {
+				if($xqr->NOT) {
+					if($xqr->LEFT[1] == $xqr->SELECT)
+						$query .= "[not(contains(text(), '".$xqr->RIGHT."'))]";
+					else
+						$query .= "[not(contains(//".$xqr->LEFT[1].", '".$xqr->RIGHT."'))]";
+				} else {
+					if($xqr->LEFT[1] == $xqr->SELECT)
+						$query .= "[contains(text(), '".$xqr->RIGHT."')]";
+					else
+						$query .= "[contains(//".$xqr->LEFT[1].", '".$xqr->RIGHT."')]";
+				}
+			}
+			//OPERATOR
+			else {
+				if($xqr->NOT) {
+					$query .= "[not(".$xqr->LEFT[1].$xqr->OPERATOR.$xqr->RIGHT.")]";
+				} else {
+					$query .= "[".$xqr->LEFT[1].$xqr->OPERATOR.$xqr->RIGHT."]";
+				}
+			}
+		}
+		//ELEMENT.ATTRIBUTE
+		elseif($xqr->LEFT[0] === "ELEMENT.ATTRIBUTE") {
+			//CONTAINS
+			if($xqr->OPERATOR === "CONTAINS") {
+				if($xqr->NOT) {
+					if($xqr->LEFT[1] == $xqr->SELECT) {
+						$x = explode(".", $xqr->LEFT[1]);
+						$query .= "[not(".$x[0]."[contains(text(), '".$xqr->RIGHT."')])]";
+					} else {
+						$query .= "[not(".$x[0]."[contains(".$x[1].", '".$xqr->RIGHT."')])]";//TODO: @
+					}
+				} else {
+					$x = explode(".", $xqr->LEFT[1]);
+					$query .= "[".$x[0]."[contains(@".$x[1].", '".$xqr->RIGHT."')]]";
+				}
+			} else {
+			//OPERATOR
+				if($xqr->NOT) {
+					$x = explode(".", $xqr->LEFT[1]);
+					$query .= "[not(".$x[0]."[@".$x[1].$xqr->OPERATOR.$xqr->RIGHT."])]";
+				} else {
+					$x = explode(".", $xqr->LEFT[1]);
+					$query .= "[".$x[0]."[@".$x[1].$xqr->OPERATOR.$xqr->RIGHT."]]";
+				}
+			}
+		}
+		//.ATTRIBUTE
+		elseif($xqr->LEFT[0] === "ATTRIBUTE") {
+			//CONTAINS
+			if($xqr->OPERATOR === "CONTAINS") {
+				if($xqr->NOT) {
+					$query .= "[not(contains(@".substr($xqr->LEFT[1], 1).", '".$xqr->RIGHT."'"."))]";
+				} else {
+					$query .= "[contains(@".substr($xqr->LEFT[1], 1).", '".$xqr->RIGHT."'".")]";
+				}
+			} else {
+			//OPERATOR
+				if($xqr->NOT) {
+					$query .= "[not(@".substr($xqr->LEFT[1], 1).$xqr->OPERATOR.$xqr->RIGHT.")]";
+				} else {
+					$query .= "[@".substr($xqr->LEFT[1], 1).$xqr->OPERATOR.$xqr->RIGHT."]";
+				}
+			}
+		}
 		#------ </WHERE> ------------------------------------
-		// print $query."\n";
+		print $query."\n";
 		return $query;
     }
 
@@ -329,13 +397,13 @@
 
 
     function printHelp() {
-        printf("--help                 - Show help
---input=filename.ext   - Input file with xml
---output=filename.ext  - Output file with xml
---query='query'        - Query under xml - can not be used with -qf attribute
---qf=filename.ext      - Filename with query under xml
--n                     - Xml will be generated without XML header
--r=element             - Name of root element\n");
+        echo("--help                 - Show help\n" .
+			"--input=filename.ext   - Input file with xml\n" .
+			"--output=filename.ext  - Output file with xml\n" .
+			"--query='query'        - Query under xml - can not be used with -qf attribute\n" .
+			"--qf=filename.ext      - Filename with query under xml\n" .
+			"-n                     - Xml will be generated without XML header\n" .
+			"-r=element             - Name of root element\n");
     }
 
     $stderr = fopen('php://stderr', 'a');
