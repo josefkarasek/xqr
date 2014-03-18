@@ -285,8 +285,6 @@
 		#------ </SELECT> ------------------------------------
 
 		#------ <WHERE> ------------------------------------
-		// if($xqr->LEFT[0] == "ELEMENT.ATTRIBUTE")
-		// if($xqr->LEFT[0] == "ATTRIBUTE")
 		//ELEMENT
 		if($xqr->LEFT[0] === "ELEMENT") {
 			//CONTAINS
@@ -324,8 +322,13 @@
 						$query .= "[not(".$x[0]."[contains(".$x[1].", '".$xqr->RIGHT."')])]";//TODO: @
 					}
 				} else {
-					$x = explode(".", $xqr->LEFT[1]);
-					$query .= "[".$x[0]."[contains(@".$x[1].", '".$xqr->RIGHT."')]]";
+					if($xqr->LEFT[1] == $xqr->SELECT) {
+						$x = explode(".", $xqr->LEFT[1]);
+						$query .= "[".$x[0]."[contains(text(), '".$xqr->RIGHT."')]]";
+					} else {
+						$x = explode(".", $xqr->LEFT[1]);
+						$query .= "[".$x[0]."[contains(@".$x[1].", '".$xqr->RIGHT."')]]";
+					}
 				}
 			} else {
 			//OPERATOR
@@ -382,7 +385,7 @@
 
 		$result = $xml->xpath($query);
 
-		$i = 1;
+		$i = 1; //TODO:musi byt od 0
 		foreach ($result as $line) {
 			fwrite($output, $line->asXML());
 			if(isset($xqr->LIMIT) and $xqr->LIMIT == $i)
